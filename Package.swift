@@ -3,18 +3,26 @@
 import PackageDescription
 
 let package = Package(
-    name: "EntrevoixKit",
+    name: "EntrevoixShared",
     defaultLocalization: "en",
     platforms: [.iOS(.v26), .macOS(.v26)],
     products: [
         .library(name: "EntrevoixCore", targets: ["EntrevoixCore"]),
         .library(name: "EntrevoixOpenAIAdapters", targets: ["EntrevoixOpenAIAdapters"]),
-        .library(name: "EntrevoixCloudKitAdapters", targets: ["EntrevoixCloudKitAdapters"])
+        .library(name: "EntrevoixAppleAdapters", targets: ["EntrevoixAppleAdapters"])
     ],
     targets: [
         .target(name: "EntrevoixCore"),
         .target(name: "EntrevoixOpenAIAdapters", dependencies: ["EntrevoixCore"]),
-        .target(name: "EntrevoixCloudKitAdapters", dependencies: ["EntrevoixCore"]),
-        .testTarget(name: "EntrevoixCoreTests", dependencies: ["EntrevoixCore"])
+        .target(name: "EntrevoixAppleAdapters", dependencies: ["EntrevoixCore"]),
+        .testTarget(name: "EntrevoixCoreTests", dependencies: ["EntrevoixCore"]),
+        .testTarget(
+            name: "EntrevoixAdapterAPITests",
+            dependencies: [
+                "EntrevoixCore",
+                "EntrevoixOpenAIAdapters",
+                "EntrevoixAppleAdapters"
+            ]
+        )
     ]
 )

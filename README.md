@@ -2,16 +2,21 @@
 
 Shared Swift package for Entrevoix clients on macOS, iOS, and iPadOS.
 
-The package currently provides:
+The package provides three library products:
 
-- `EntrevoixCore`, the shared dictation domain and ports;
-- `EntrevoixOpenAIAdapters`, OpenAI-compatible transcription adapters;
-- `EntrevoixCloudKitAdapters`, CloudKit persistence and worker adapters.
+- `EntrevoixCore`: the shared domain, preference migrations, provider catalogue,
+  cleanup workflows, application ports, and dictation/connection-test
+  coordinators;
+- `EntrevoixOpenAIAdapters`: the ephemeral, same-origin network transport plus
+  OpenAI-compatible transcription, text-cleanup, and model-discovery adapters;
+- `EntrevoixAppleAdapters`: Apple Speech and Foundation Models adapters,
+  capture trimming, Keychain secret storage, preference persistence, and prompt
+  export reading.
 
 The package deliberately excludes platform presentation and system integration:
-AppKit and Accessibility on macOS, and recording UI, sharing, and App Intents on
-iOS/iPadOS. Each application owns its composition root and supplies the
-appropriate adapters.
+AppKit, Accessibility, Sparkle, global shortcuts, and automatic insertion on
+macOS; recording UI, sharing, and App Intents on iOS/iPadOS. Each application
+owns its composition root and supplies those platform-specific adapters.
 
 ## Consuming a release
 

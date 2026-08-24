@@ -57,8 +57,13 @@ Shared-package releases use semantic-version Git tags. Consumers adopt those
 tags independently: a package release never publishes a macOS Sparkle update or
 an iOS/iPadOS App Store build.
 
-Before creating a tag, the `CI` workflow must pass. It validates the package
-with warnings treated as errors on macOS and compiles all products for iOS.
+Run the **Release shared package** GitHub Actions workflow from `main`, entering
+a semantic version without the `v` prefix, release notes, and whether the
+release should remain a draft. The workflow validates the package with warnings
+treated as errors on macOS, compiles all products for iOS, builds a source
+archive, and then creates the `v<version>` Git tag and GitHub Release. The
+archive is attached to the release and retained as an Actions artifact for seven
+days; GitHub displays its SHA-256 digest with the release asset.
 
 ## License
 

@@ -35,7 +35,7 @@ public actor CloudKitWorkerDirectory: WorkerDirectory {
         record["supportsCleanup"] = worker.capabilities.supportsCleanup as CKRecordValue
         record["favoriteLanguageCodes"] = worker.capabilities.favoriteLanguageCodes as CKRecordValue
         record["lastSeenAt"] = worker.lastSeenAt as CKRecordValue
-        try await database.modifyRecords(saving: [record], deleting: [])
+        _ = try await database.modifyRecords(saving: [record], deleting: [])
     }
 
     private func decode(_ record: CKRecord) -> MacWorkerDescriptor? {
@@ -71,7 +71,10 @@ public actor CloudKitZoneCoordinator {
     public func prepareZoneAndSubscriptions() async throws {
         let zone = CKRecordZone(zoneID: zoneID)
         _ = try await database.modifyRecordZones(saving: [zone], deleting: [])
-        let zoneSubscription = CKRecordZoneSubscription(zoneID: zoneID)
+        let zoneSubscription = CKRecordZoneSubscription(
+            zoneID: zoneID,
+            subscriptionID: "entrevoix-zone"
+        )
         zoneSubscription.notificationInfo = CKSubscription.NotificationInfo()
         zoneSubscription.notificationInfo?.shouldSendContentAvailable = true
         zoneSubscription.notificationInfo?.desiredKeys = ["status", "targetWorkerID", "updatedAt"]

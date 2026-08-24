@@ -23,7 +23,7 @@ public actor CloudKitPromptRepository: PromptRepository {
         record["instructions"] = prompt.instructions as CKRecordValue
         record["updatedAt"] = prompt.updatedAt as CKRecordValue
         record["deletedAt"] = prompt.deletedAt as CKRecordValue?
-        try await database.modifyRecords(saving: [record], deleting: [])
+        _ = try await database.modifyRecords(saving: [record], deleting: [])
     }
 
     public func delete(id: UUID) async throws {

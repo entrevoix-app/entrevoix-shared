@@ -18,7 +18,7 @@ public actor CloudKitDictationJobRepository: DictationJobRepository {
             record["audioFileName"] = audio.fileName as CKRecordValue
             record["audioMimeType"] = audio.mimeType as CKRecordValue
         }
-        try await database.modifyRecords(saving: [record], deleting: [])
+        _ = try await database.modifyRecords(saving: [record], deleting: [])
     }
 
     public func get(id: UUID) async throws -> DictationJob? {
@@ -41,7 +41,9 @@ public actor CloudKitDictationJobRepository: DictationJobRepository {
         return records.compactMap(decode)
     }
 
-    public func update(_ job: DictationJob) async throws { try await database.modifyRecords(saving: [encode(job)], deleting: []) }
+    public func update(_ job: DictationJob) async throws {
+        _ = try await database.modifyRecords(saving: [encode(job)], deleting: [])
+    }
 
     private func encode(_ job: DictationJob) -> CKRecord {
         let record = CKRecord(recordType: EntrevoixCloudKitConfiguration.jobRecordType, recordID: CKRecord.ID(recordName: job.id.uuidString, zoneID: zoneID))

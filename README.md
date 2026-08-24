@@ -61,9 +61,9 @@ Run the **Release shared package** GitHub Actions workflow from `main`, entering
 a semantic version without the `v` prefix, release notes, and whether the
 release should remain a draft. The workflow validates the package with warnings
 treated as errors on macOS, compiles all products for iOS, builds a source
-archive with its SHA-256 checksum, and then creates the `v<version>` Git tag and
-GitHub Release. The archive is attached to the release and retained as an
-Actions artifact for seven days.
+archive, and then creates the `v<version>` Git tag and GitHub Release. The
+archive is attached to the release and retained as an Actions artifact for seven
+days; GitHub displays its SHA-256 digest with the release asset.
 
 ## License
 

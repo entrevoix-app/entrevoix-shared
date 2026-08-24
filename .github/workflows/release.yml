@@ -83,17 +83,13 @@ jobs:
           mkdir -p "$artifacts_directory"
           archive_path="$artifacts_directory/EntrevoixShared-$ENTREVOIX_SHARED_VERSION.zip"
           swift package archive-source --output "$archive_path"
-          shasum -a 256 "$archive_path" > "$archive_path.sha256"
           echo "ARCHIVE_PATH=$archive_path" >> "$GITHUB_ENV"
-          echo "CHECKSUM_PATH=$archive_path.sha256" >> "$GITHUB_ENV"
 
       - name: Upload release artifact
         uses: actions/upload-artifact@v7
         with:
           name: EntrevoixShared-${{ inputs.version }}-source
-          path: |
-            .build/release-artifacts/EntrevoixShared-${{ inputs.version }}.zip
-            .build/release-artifacts/EntrevoixShared-${{ inputs.version }}.zip.sha256
+          path: .build/release-artifacts/EntrevoixShared-${{ inputs.version }}.zip
           if-no-files-found: error
           retention-days: 7
           compression-level: 0
@@ -109,7 +105,6 @@ jobs:
           release_args=(
             "$tag"
             "$ARCHIVE_PATH"
-            "$CHECKSUM_PATH"
             "--target" "$GITHUB_SHA"
             "--title" "EntrevoixShared $ENTREVOIX_SHARED_VERSION"
             "--notes-file" "$notes_path"

@@ -167,7 +167,7 @@ public struct AppPreferences: Codable, Equatable, Sendable {
                   case .remote(var profile) = providerCatalog[index], var capability = profile.ttt else { return }
             capability.format = newValue
             profile.ttt = capability
-            profile.normalizeFixedOpenAIFields()
+            profile.normalizeFixedProviderFields()
             providerCatalog[index] = .remote(profile)
         }
     }
@@ -177,6 +177,11 @@ public struct AppPreferences: Codable, Equatable, Sendable {
             if entry.id == .apple {
                 if !result.contains(where: { $0.id == .apple }) { result.append(entry) }
             } else if !result.contains(where: { $0.id == entry.id }) { result.append(entry) }
+        }
+        providerCatalog = providerCatalog.map { entry in
+            guard case .remote(var profile) = entry else { return entry }
+            profile.normalizeFixedProviderFields()
+            return .remote(profile)
         }
         if provider(for: selectedSTTProviderID) == nil { selectedSTTProviderID = nil }
         if provider(for: selectedTTTProviderID) == nil { selectedTTTProviderID = nil }
@@ -196,7 +201,7 @@ public struct AppPreferences: Codable, Equatable, Sendable {
         case .stt: profile.stt = STTCapability(path: configuration.path, model: configuration.model)
         case .ttt: profile.ttt = TTTCapability(path: configuration.path, model: configuration.model, format: profile.ttt?.format ?? .responses)
         }
-        profile.normalizeFixedOpenAIFields()
+        profile.normalizeFixedProviderFields()
         providerCatalog[index] = .remote(profile)
     }
 

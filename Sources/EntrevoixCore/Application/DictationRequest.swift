@@ -7,6 +7,7 @@ public enum TranscriptionTarget: Sendable {
 
 public enum CleanupTarget: Sendable {
     case remote
+    case anthropic
     case codex
     case apple(localeIdentifier: String?)
 }

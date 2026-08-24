@@ -45,6 +45,8 @@ public struct OpenAITextCleanupService: TextCleaning {
                 ],
                 store: false
             ))
+        case .anthropicMessages:
+            throw CleanupError.invalidResponse
         }
 
         let (data, response) = try await transport.data(for: request)
@@ -59,6 +61,8 @@ public struct OpenAITextCleanupService: TextCleaning {
             result = try? decodeResponsesText(from: data)
         case .chatCompletions:
             result = try? decodeChatCompletionsText(from: data)
+        case .anthropicMessages:
+            result = nil
         }
         guard let result, !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw CleanupError.emptyResult

@@ -68,6 +68,24 @@ final class ProviderConfigurationTests: XCTestCase {
         XCTAssertEqual(ProviderConfiguration.openAIResponses.path, "responses")
     }
 
+    func testAnthropicPresetLocksTransportFieldsAndKeepsItsModelEditable() {
+        var profile = RemoteProviderProfile.anthropic(name: "Writing")
+        profile.baseURL = "https://example.com"
+        profile.authentication = .bearer
+        profile.customHeaderName = "Authorization"
+        profile.stt = STTCapability(path: "audio/transcriptions", model: "wrong")
+        profile.ttt = TTTCapability(path: "responses", model: "claude-custom", format: .responses)
+        profile.normalizeFixedProviderFields()
+
+        XCTAssertEqual(profile.name, "Writing")
+        XCTAssertEqual(profile.baseURL, "https://api.anthropic.com/v1")
+        XCTAssertEqual(profile.authentication, .apiKey)
+        XCTAssertEqual(profile.customHeaderName, "x-api-key")
+        XCTAssertNil(profile.stt)
+        XCTAssertEqual(profile.ttt, TTTCapability(path: "messages", model: "claude-custom", format: .anthropicMessages))
+        XCTAssertEqual(profile.configuration(for: .ttt)?.endpointURL?.absoluteString, "https://api.anthropic.com/v1/messages")
+    }
+
     func testValidationIssuesAreStableAndOrdered() {
         let configuration = ProviderConfiguration(
             name: "Invalid", baseURL: "not a URL", path: "responses", model: " ",

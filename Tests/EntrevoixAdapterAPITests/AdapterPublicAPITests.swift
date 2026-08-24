@@ -8,6 +8,7 @@ import EntrevoixOpenAIAdapters
 func sharedAdaptersExposeConsumerConstructors() {
     let remoteTranscriber: any SpeechTranscribing = OpenAITranscriptionService()
     let remoteCleaner: any TextCleaning = OpenAITextCleanupService()
+    let anthropicCleaner: any TextCleaning = AnthropicTextCleanupService()
     let modelCatalog: any RemoteModelDiscovering = RemoteModelCatalogClient()
     let appleTranscriber: any SpeechTranscribing = AppleSpeechTranscriptionService()
     let appleCleaner: any TextCleaning = AppleFoundationCleanupService()
@@ -24,6 +25,7 @@ func sharedAdaptersExposeConsumerConstructors() {
     withExtendedLifetime((
         remoteTranscriber,
         remoteCleaner,
+        anthropicCleaner,
         modelCatalog,
         appleTranscriber,
         appleCleaner,

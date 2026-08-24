@@ -228,6 +228,8 @@ public final class DictationCoordinator {
                     case .remote:
                         let cleanupHost = cleanup.configuration.endpointURL?.host ?? "configured endpoint"
                         self.dependencies.logger.log("Sending transcription to \(cleanupHost)")
+                    case .anthropic:
+                        self.dependencies.logger.log("Sending transcription to Anthropic")
                     case .codex:
                         self.dependencies.logger.log("Sending transcription to ChatGPT Codex")
                     case .apple:

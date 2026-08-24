@@ -23,6 +23,7 @@ public enum ProviderIdentifier: Codable, Equatable, Hashable, Sendable, Identifi
 public enum RemoteProviderKind: String, Codable, CaseIterable, Identifiable, Sendable {
     case openAI
     case openAICompatible
+    case anthropic
 
     public var id: Self { self }
 }
@@ -94,17 +95,48 @@ public struct RemoteProviderProfile: Codable, Equatable, Sendable, Identifiable 
         Self(id: id, kind: .openAICompatible, name: name, baseURL: "", stt: STTCapability(), ttt: nil)
     }
 
-    public mutating func normalizeFixedOpenAIFields() {
-        guard kind == .openAI else { return }
-        baseURL = "https://api.openai.com/v1"
-        authentication = .bearer
-        customHeaderName = "Authorization"
-        modelsPath = "models"
-        if stt != nil { stt?.path = "audio/transcriptions" }
-        if var ttt {
-            ttt.path = ttt.format == .chatCompletions ? "chat/completions" : "responses"
-            self.ttt = ttt
+    public static func anthropic(id: UUID = UUID(), name: String = "Anthropic") -> Self {
+        Self(
+            id: id,
+            kind: .anthropic,
+            name: name,
+            baseURL: "https://api.anthropic.com/v1",
+            authentication: .apiKey,
+            customHeaderName: "x-api-key",
+            modelsPath: "",
+            stt: nil,
+            ttt: TTTCapability(path: "messages", model: "claude-sonnet-5", format: .anthropicMessages)
+        )
+    }
+
+    public mutating func normalizeFixedProviderFields() {
+        switch kind {
+        case .openAI:
+            baseURL = "https://api.openai.com/v1"
+            authentication = .bearer
+            customHeaderName = "Authorization"
+            modelsPath = "models"
+            if stt != nil { stt?.path = "audio/transcriptions" }
+            if var ttt {
+                ttt.path = ttt.format == .chatCompletions ? "chat/completions" : "responses"
+                self.ttt = ttt
+            }
+        case .anthropic:
+            baseURL = "https://api.anthropic.com/v1"
+            authentication = .apiKey
+            customHeaderName = "x-api-key"
+            modelsPath = ""
+            stt = nil
+            let model = ttt?.model ?? "claude-sonnet-5"
+            ttt = TTTCapability(path: "messages", model: model, format: .anthropicMessages)
+        case .openAICompatible:
+            break
         }
+    }
+
+    /// Compatibility name retained for existing clients.
+    public mutating func normalizeFixedOpenAIFields() {
+        normalizeFixedProviderFields()
     }
 
     public func configuration(for capability: ProviderCapability) -> ProviderConfiguration? {

@@ -1,6 +1,7 @@
 public enum CleanupAPIFormat: String, CaseIterable, Identifiable, Codable, Sendable {
     case responses
     case chatCompletions
+    case anthropicMessages
     public var id: Self { self }
 }
 

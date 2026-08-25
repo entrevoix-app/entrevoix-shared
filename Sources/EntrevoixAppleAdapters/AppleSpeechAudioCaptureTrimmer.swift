@@ -8,7 +8,7 @@ import Speech
 /// continuous span surrounding detected human speech. No assets are downloaded
 /// here: unavailable analysis deliberately leaves the recording unchanged.
 public actor AppleSpeechAudioCaptureTrimmer: AudioCaptureTrimming {
-    private static let retainedPadding: TimeInterval = 0.1
+    private static let retainedPadding: TimeInterval = 0.2
     private static let longPauseThreshold: TimeInterval = 1
     private static let reducedPauseDuration: TimeInterval = 0.5
 

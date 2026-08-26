@@ -31,10 +31,27 @@ public enum RemoteProviderKind: String, Codable, CaseIterable, Identifiable, Sen
 public struct STTCapability: Codable, Equatable, Sendable {
     public var path: String
     public var model: String
+    public var uploadFormat: AudioUploadFormat
 
-    public init(path: String = "audio/transcriptions", model: String = "gpt-transcribe") {
+    public init(
+        path: String = "audio/transcriptions",
+        model: String = "gpt-transcribe",
+        uploadFormat: AudioUploadFormat = .wav
+    ) {
         self.path = path
         self.model = model
+        self.uploadFormat = uploadFormat
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case path, model, uploadFormat
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        path = try container.decodeIfPresent(String.self, forKey: .path) ?? "audio/transcriptions"
+        model = try container.decodeIfPresent(String.self, forKey: .model) ?? "gpt-transcribe"
+        uploadFormat = try container.decodeIfPresent(AudioUploadFormat.self, forKey: .uploadFormat) ?? .wav
     }
 }
 
@@ -143,7 +160,17 @@ public struct RemoteProviderProfile: Codable, Equatable, Sendable, Identifiable 
         switch capability {
         case .stt:
             guard let stt else { return nil }
-            return ProviderConfiguration(id: id, name: name, baseURL: baseURL, path: stt.path, model: stt.model, authentication: authentication, customHeaderName: customHeaderName, timeout: timeout)
+            return ProviderConfiguration(
+                id: id,
+                name: name,
+                baseURL: baseURL,
+                path: stt.path,
+                model: stt.model,
+                authentication: authentication,
+                customHeaderName: customHeaderName,
+                timeout: timeout,
+                audioUploadFormat: stt.uploadFormat
+            )
         case .ttt:
             guard let ttt else { return nil }
             return ProviderConfiguration(id: id, name: name, baseURL: baseURL, path: ttt.path, model: ttt.model, authentication: authentication, customHeaderName: customHeaderName, timeout: timeout)

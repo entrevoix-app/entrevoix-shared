@@ -1,3 +1,5 @@
+import AudioToolbox
+import AVFAudio
 import Foundation
 import EntrevoixCore
 
@@ -21,7 +23,13 @@ public struct OpenAITranscriptionService: SpeechTranscribing {
         language: String?
     ) async throws -> String {
         guard let endpoint = configuration.endpointURL else { throw TranscriptionError.invalidEndpoint }
-        let audioData = try Data(contentsOf: audioURL)
+        let upload = try PreparedAudioUpload.make(
+            from: audioURL,
+            format: configuration.audioUploadFormat
+        )
+        defer { upload.deleteIfTemporary() }
+
+        let audioData = try Data(contentsOf: upload.url)
         guard audioData.count <= 25 * 1024 * 1024 else { throw TranscriptionError.fileTooLarge }
 
         let boundary = makeBoundary()
@@ -33,7 +41,7 @@ public struct OpenAITranscriptionService: SpeechTranscribing {
         if let language, !language.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             appendField(configuration.model == "gpt-transcribe" ? "languages[]" : "language", value: language, to: &body, boundary: boundary)
         }
-        body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"audio.wav\"\r\nContent-Type: audio/wav\r\n\r\n".utf8))
+        body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\(upload.filename)\"\r\nContent-Type: \(upload.mimeType)\r\n\r\n".utf8))
         body.append(audioData)
         body.append(Data("\r\n--\(boundary)--\r\n".utf8))
 
@@ -79,6 +87,194 @@ public struct OpenAITranscriptionService: SpeechTranscribing {
     }
 }
 
+private struct PreparedAudioUpload {
+    let url: URL
+    let filename: String
+    let mimeType: String
+    private let isTemporary: Bool
+
+    static func make(from sourceURL: URL, format: AudioUploadFormat) throws -> Self {
+        switch format {
+        case .wav:
+            return Self(url: sourceURL, filename: "audio.wav", mimeType: "audio/wav", isTemporary: false)
+        case .m4aAAC:
+            return try transcode(
+                sourceURL: sourceURL,
+                fileExtension: "m4a",
+                filename: "audio.m4a",
+                mimeType: "audio/mp4",
+                settings: [
+                    AVAudioFileTypeKey: kAudioFileM4AType,
+                    AVFormatIDKey: kAudioFormatMPEG4AAC,
+                    AVSampleRateKey: 16_000,
+                    AVNumberOfChannelsKey: 1,
+                    AVEncoderBitRateKey: 32_000
+                ]
+            )
+        case .flac:
+            return try transcodeFLAC(
+                sourceURL: sourceURL,
+                filename: "audio.flac",
+                mimeType: "audio/flac"
+            )
+        }
+    }
+
+    func deleteIfTemporary() {
+        guard isTemporary else { return }
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    private static func transcode(
+        sourceURL: URL,
+        fileExtension: String,
+        filename: String,
+        mimeType: String,
+        settings: [String: Any]
+    ) throws -> Self {
+        let destinationURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Entrevoix", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension(fileExtension)
+
+        do {
+            try FileManager.default.createDirectory(
+                at: destinationURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            let input = try AVAudioFile(forReading: sourceURL)
+            let output = try AVAudioFile(
+                forWriting: destinationURL,
+                settings: settings,
+                commonFormat: .pcmFormatFloat32,
+                interleaved: false
+            )
+            let capacity: AVAudioFrameCount = 8_192
+            guard let buffer = AVAudioPCMBuffer(
+                pcmFormat: input.processingFormat,
+                frameCapacity: capacity
+            ) else {
+                throw TranscriptionError.audioEncodingFailed
+            }
+
+            while input.framePosition < input.length {
+                buffer.frameLength = 0
+                let frameCount = AVAudioFrameCount(min(
+                    AVAudioFramePosition(capacity),
+                    input.length - input.framePosition
+                ))
+                try input.read(into: buffer, frameCount: frameCount)
+                guard buffer.frameLength > 0 else { throw TranscriptionError.audioEncodingFailed }
+                try output.write(from: buffer)
+            }
+            output.close()
+            return Self(url: destinationURL, filename: filename, mimeType: mimeType, isTemporary: true)
+        } catch {
+            try? FileManager.default.removeItem(at: destinationURL)
+            if error is TranscriptionError { throw error }
+            throw TranscriptionError.audioEncodingFailed
+        }
+    }
+
+}
+
+private extension PreparedAudioUpload {
+    private static func transcodeFLAC(
+        sourceURL: URL,
+        filename: String,
+        mimeType: String
+    ) throws -> Self {
+        let destinationURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Entrevoix", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("flac")
+
+        do {
+            try FileManager.default.createDirectory(
+                at: destinationURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            let input = try AVAudioFile(forReading: sourceURL)
+            try writeFLAC(from: input, to: destinationURL)
+            try ensureNativeFLACHeader(at: destinationURL)
+            return Self(url: destinationURL, filename: filename, mimeType: mimeType, isTemporary: true)
+        } catch {
+            try? FileManager.default.removeItem(at: destinationURL)
+            if error is TranscriptionError { throw error }
+            throw TranscriptionError.audioEncodingFailed
+        }
+    }
+
+    private static func writeFLAC(from input: AVAudioFile, to destinationURL: URL) throws {
+        var encodedFormat = AudioStreamBasicDescription(
+            mSampleRate: 16_000,
+            mFormatID: kAudioFormatFLAC,
+            mFormatFlags: 0,
+            mBytesPerPacket: 0,
+            mFramesPerPacket: 0,
+            mBytesPerFrame: 0,
+            mChannelsPerFrame: 1,
+            mBitsPerChannel: 0,
+            mReserved: 0
+        )
+        var file: ExtAudioFileRef?
+        try checkStatus(ExtAudioFileCreateWithURL(
+            destinationURL as CFURL,
+            kAudioFileFLACType,
+            &encodedFormat,
+            nil,
+            1,
+            &file
+        ))
+        guard let file else { throw TranscriptionError.audioEncodingFailed }
+        defer { _ = ExtAudioFileDispose(file) }
+
+        var clientFormat = input.processingFormat.streamDescription.pointee
+        try checkStatus(ExtAudioFileSetProperty(
+            file,
+            kExtAudioFileProperty_ClientDataFormat,
+            UInt32(MemoryLayout<AudioStreamBasicDescription>.size),
+            &clientFormat
+        ))
+
+        let capacity: AVAudioFrameCount = 8_192
+        guard let buffer = AVAudioPCMBuffer(
+            pcmFormat: input.processingFormat,
+            frameCapacity: capacity
+        ) else {
+            throw TranscriptionError.audioEncodingFailed
+        }
+        while input.framePosition < input.length {
+            buffer.frameLength = 0
+            let frameCount = AVAudioFrameCount(min(
+                AVAudioFramePosition(capacity),
+                input.length - input.framePosition
+            ))
+            try input.read(into: buffer, frameCount: frameCount)
+            guard buffer.frameLength > 0 else { throw TranscriptionError.audioEncodingFailed }
+            try checkStatus(ExtAudioFileWrite(file, buffer.frameLength, buffer.audioBufferList))
+        }
+    }
+
+    private static func checkStatus(_ status: OSStatus) throws {
+        guard status == noErr else { throw TranscriptionError.audioEncodingFailed }
+    }
+
+    /// `ExtAudioFile` writes native FLAC metadata blocks but omits the mandatory
+    /// stream marker on current macOS releases. Restore it before upload.
+    private static func ensureNativeFLACHeader(at url: URL) throws {
+        var data = try Data(contentsOf: url)
+        let header = Data("fLaC".utf8)
+        guard data.count >= header.count else { throw TranscriptionError.audioEncodingFailed }
+        if data.prefix(header.count) == header { return }
+        guard data.prefix(header.count) == Data(repeating: 0, count: header.count) else {
+            throw TranscriptionError.audioEncodingFailed
+        }
+        data.replaceSubrange(0..<header.count, with: header)
+        try data.write(to: url, options: .atomic)
+    }
+}
+
 private extension URLRequest {
     func withHTTPBody(_ body: Data) -> URLRequest {
         var request = self
@@ -96,6 +292,7 @@ enum TranscriptionError: LocalizedError, LogSafeError, UserFacingErrorProviding 
     case invalidHeader
     case missingAPIKey
     case fileTooLarge
+    case audioEncodingFailed
     case invalidResponse
     case emptyResult
     case http(statusCode: Int, message: String?)
@@ -106,6 +303,7 @@ enum TranscriptionError: LocalizedError, LogSafeError, UserFacingErrorProviding 
         case .invalidHeader: "The authentication header name is invalid."
         case .missingAPIKey: "The STT API key is missing."
         case .fileTooLarge: "The audio file exceeds the 25 MB limit."
+        case .audioEncodingFailed: "The audio file could not be prepared for upload."
         case .invalidResponse: "The STT response is invalid."
         case .emptyResult: "The transcript is empty."
         case .http(let statusCode, let message):
@@ -127,6 +325,7 @@ enum TranscriptionError: LocalizedError, LogSafeError, UserFacingErrorProviding 
         case .invalidHeader: .sttInvalidHeader
         case .missingAPIKey: .sttMissingAPIKey
         case .fileTooLarge: .sttFileTooLarge
+        case .audioEncodingFailed: .sttAudioEncodingFailed
         case .invalidResponse: .sttInvalidResponse
         case .emptyResult: .sttEmptyResult
         case .http(let statusCode, let message): .sttHTTP(statusCode: statusCode, providerMessage: message)

@@ -3,6 +3,18 @@ import XCTest
 @testable import EntrevoixCore
 
 final class ProviderConfigurationTests: XCTestCase {
+    func testSTTUploadFormatDefaultsToWAVAndFlowsIntoRequestConfiguration() throws {
+        let legacy = try JSONDecoder().decode(
+            STTCapability.self,
+            from: Data(#"{"path":"audio/transcriptions","model":"whisper-1"}"#.utf8)
+        )
+        XCTAssertEqual(legacy.uploadFormat, .wav)
+
+        var profile = RemoteProviderProfile.compatible()
+        profile.stt?.uploadFormat = .flac
+        XCTAssertEqual(profile.configuration(for: .stt)?.audioUploadFormat, .flac)
+    }
+
     func testNormalizesKnownOpenAIRoutes() {
         let cases = [
             (" http://127.0.0.1:8001 ", "//audio/transcriptions//", "http://127.0.0.1:8001/v1/audio/transcriptions"),

@@ -7,6 +7,7 @@ public enum UserFacingErrorMessage: Equatable, Sendable, ExpressibleByStringLite
     case sttInvalidHeader
     case sttMissingAPIKey
     case sttFileTooLarge
+    case sttAudioEncodingFailed
     case sttInvalidResponse
     case sttEmptyResult
     case sttHTTP(statusCode: Int, providerMessage: String?)

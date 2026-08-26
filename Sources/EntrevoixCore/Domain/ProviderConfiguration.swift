@@ -16,11 +16,14 @@ public struct ProviderConfiguration: Codable, Equatable, Sendable, Identifiable 
     public var authentication: AuthenticationMode
     public var customHeaderName: String
     public var timeout: Double
+    /// Relevant only to speech-to-text requests. Text requests ignore it.
+    public var audioUploadFormat: AudioUploadFormat
 
     public init(
         id: UUID = UUID(), name: String, baseURL: String, path: String, model: String,
         authentication: AuthenticationMode = .bearer,
-        customHeaderName: String = "Authorization", timeout: Double = 60
+        customHeaderName: String = "Authorization", timeout: Double = 60,
+        audioUploadFormat: AudioUploadFormat = .wav
     ) {
         self.id = id
         self.name = name
@@ -30,6 +33,24 @@ public struct ProviderConfiguration: Codable, Equatable, Sendable, Identifiable 
         self.authentication = authentication
         self.customHeaderName = customHeaderName
         self.timeout = timeout
+        self.audioUploadFormat = audioUploadFormat
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, baseURL, path, model, authentication, customHeaderName, timeout, audioUploadFormat
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
+        baseURL = try container.decodeIfPresent(String.self, forKey: .baseURL) ?? ""
+        path = try container.decodeIfPresent(String.self, forKey: .path) ?? ""
+        model = try container.decodeIfPresent(String.self, forKey: .model) ?? ""
+        authentication = try container.decodeIfPresent(AuthenticationMode.self, forKey: .authentication) ?? .bearer
+        customHeaderName = try container.decodeIfPresent(String.self, forKey: .customHeaderName) ?? "Authorization"
+        timeout = try container.decodeIfPresent(Double.self, forKey: .timeout) ?? 60
+        audioUploadFormat = try container.decodeIfPresent(AudioUploadFormat.self, forKey: .audioUploadFormat) ?? .wav
     }
 
     public var endpointURL: URL? {
